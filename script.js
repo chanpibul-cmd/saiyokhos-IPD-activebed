@@ -1,21 +1,20 @@
-// ใส่ URL ของ Web App ที่ได้จาก Apps Script ที่นี่
-const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxOHlkqLZSvTC_UK0nx2yxRQo8zByapBoMX9bp64iNQR1h_ToJts48k6U3FAR1cgIkY/exec";
+const APPS_SCRIPT_URL = "YOUR_WEB_APP_URL_HERE";
 
 let globalData = [];
+let latestDataDateStr = "";
 
 document.addEventListener("DOMContentLoaded", () => {
-    // กำหนดค่าเริ่มต้นของ Month Filter เป็นเดือนปัจจุบัน
-    const now = new Date();
-    document.getElementById('monthFilter').value = now.toISOString().slice(0, 7);
-    
-    // โหลดข้อมูล (สำหรับการทดสอบในกรณีที่ยังไม่มี URL ให้จำลองข้อมูล)
     if (APPS_SCRIPT_URL === "YOUR_WEB_APP_URL_HERE") {
-        console.warn("ยังไม่ได้ใส่ APPS_SCRIPT_URL ใช้ข้อมูลจำลองแทน");
         generateMockData();
         processData();
     } else {
         fetchData();
     }
+
+    // ทำให้ Filter เดือนทำงาน เมื่อมีการเปลี่ยนเดือน
+    document.getElementById('monthFilter').addEventListener('change', function() {
+        renderTable(this.value);
+    });
 });
 
 function fetchData() {
@@ -42,21 +41,37 @@ function processData() {
     document.getElementById('loading').style.display = 'none';
     document.getElementById('pills-tabContent').style.display = 'block';
 
-    const todayStr = getTodayString();
+    // 1. หา "วันที่ล่าสุด" ที่มีข้อมูลในระบบ (แก้ปัญหางานไม่อัพเดทเป็นปัจจุบันทุกวัน)
+    latestDataDateStr = "1970-01-01";
+    globalData.forEach(row => {
+        if (row.admitDate && row.admitDate > latestDataDateStr) latestDataDateStr = row.admitDate;
+        if (row.dischargeDate && row.dischargeDate > latestDataDateStr) latestDataDateStr = row.dischargeDate;
+    });
     
-    // 1. Calculate Today's KPIs
+    if (latestDataDateStr === "1970-01-01") {
+        latestDataDateStr = new Date().toISOString().split('T')[0]; // Fallback
+    }
+
+    // อัพเดท UI
+    document.getElementById('latestDataDateDisplay').innerHTML = `ข้อมูลล่าสุด: <span class="text-primary">${formatDateThaiFull(latestDataDateStr)}</span>`;
+    
+    // ตั้งค่าเริ่มต้นของ Month Filter ให้เป็นเดือนของข้อมูลล่าสุด
+    const defaultMonth = latestDataDateStr.substring(0, 7);
+    document.getElementById('monthFilter').value = defaultMonth;
+
+    // 2. คำนวณ KPI ของ "วันที่ข้อมูลล่าสุด"
     let todayAdmit = 0;
     let todayDischarge = 0;
     let currentActiveBed = 0;
     let wardCounts = {};
 
     globalData.forEach(row => {
-        if (row.admitDate === todayStr) todayAdmit++;
-        if (row.dischargeDate === todayStr) todayDischarge++;
+        if (row.admitDate === latestDataDateStr) todayAdmit++;
+        if (row.dischargeDate === latestDataDateStr) todayDischarge++;
         
-        // Active Bed Logic: Admit date <= today AND (Discharge date > today OR Discharge is empty)
-        if (row.admitDate && row.admitDate <= todayStr) {
-            if (!row.dischargeDate || row.dischargeDate > todayStr) {
+        // Active Bed Logic ณ วันที่ข้อมูลล่าสุด
+        if (row.admitDate && row.admitDate <= latestDataDateStr) {
+            if (!row.dischargeDate || row.dischargeDate > latestDataDateStr) {
                 currentActiveBed++;
                 let w = row.ward || "ไม่ระบุ";
                 wardCounts[w] = (wardCounts[w] || 0) + 1;
@@ -68,31 +83,30 @@ function processData() {
     document.getElementById('todayDischarge').innerText = todayDischarge;
     document.getElementById('currentActiveBed').innerText = currentActiveBed;
 
-    // 2. Render Ward Stats
+    // 3. Render Ward Stats (ด้านล่างแจงจำนวนเตียง แต่ละ ward)
     let wardHtml = '';
-    for (let w in wardCounts) {
-        wardHtml += `<div class="d-flex justify-content-between align-items-center mb-2 border-bottom pb-2">
-                        <span>${w}</span>
-                        <span class="badge bg-primary rounded-pill px-3 py-2 fs-6">${wardCounts[w]}</span>
+    let sortedWards = Object.keys(wardCounts).sort((a,b) => wardCounts[b] - wardCounts[a]);
+    sortedWards.forEach(w => {
+        wardHtml += `<div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
+                        <span class="fw-bold text-secondary">${w}</span>
+                        <span class="badge bg-primary rounded-pill px-3 py-2 fs-6 shadow-sm">${wardCounts[w]} เตียง</span>
                      </div>`;
-    }
-    document.getElementById('wardStatsContainer').innerHTML = wardHtml || '<p class="text-muted">ไม่มีข้อมูล</p>';
+    });
+    document.getElementById('wardStatsContainer').innerHTML = wardHtml || '<p class="text-muted text-center py-3">ไม่มีข้อมูล Active Bed</p>';
 
-    // 3. Generate Daily Stats (Last 14 days for chart, 30 days for table)
+    // 4. Generate Daily Stats สำหรับกราฟ 14 วันย้อนหลัง จากวันที่ข้อมูลล่าสุด
     let dailyStats = {};
-    for(let i=0; i<30; i++) {
-        let d = new Date();
+    for(let i=0; i<14; i++) {
+        let d = new Date(latestDataDateStr);
         d.setDate(d.getDate() - i);
         let dateStr = d.toISOString().split('T')[0];
         dailyStats[dateStr] = { admit: 0, discharge: 0, active: 0 };
     }
 
-    // Calculate historical active beds & daily admits/discharges
     Object.keys(dailyStats).forEach(targetDate => {
         globalData.forEach(row => {
             if (row.admitDate === targetDate) dailyStats[targetDate].admit++;
             if (row.dischargeDate === targetDate) dailyStats[targetDate].discharge++;
-            
             if (row.admitDate && row.admitDate <= targetDate) {
                 if (!row.dischargeDate || row.dischargeDate > targetDate) {
                     dailyStats[targetDate].active++;
@@ -102,17 +116,19 @@ function processData() {
     });
 
     renderChart(dailyStats);
-    renderTable(dailyStats);
+    
+    // 5. Render ตารางรายวันตามเดือนของข้อมูลล่าสุด
+    renderTable(defaultMonth);
 }
 
 let activeBedChart;
 function renderChart(dailyStats) {
     const ctx = document.getElementById('activeBedChart').getContext('2d');
+    const dates = Object.keys(dailyStats).sort(); // Ascending for chart
     
-    // Sort dates ascending for chart (last 14 days)
-    const dates = Object.keys(dailyStats).slice(0, 14).reverse();
     const activeData = dates.map(d => dailyStats[d].active);
     const admitData = dates.map(d => dailyStats[d].admit);
+    const dischargeData = dates.map(d => dailyStats[d].discharge);
 
     if (activeBedChart) activeBedChart.destroy();
 
@@ -120,20 +136,41 @@ function renderChart(dailyStats) {
         type: 'line',
         data: {
             labels: dates.map(d => formatDateThai(d)),
-            datasets: [{
-                label: 'Active Bed',
-                data: activeData,
-                borderColor: '#0d6efd',
-                backgroundColor: 'rgba(13, 110, 253, 0.1)',
-                borderWidth: 2,
-                fill: true,
-                tension: 0.3
-            }]
+            datasets: [
+                {
+                    label: 'Active Bed',
+                    data: activeData,
+                    borderColor: '#0d6efd',
+                    backgroundColor: 'rgba(13, 110, 253, 0.1)',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.3
+                },
+                {
+                    label: 'Admit (รับเข้า)',
+                    data: admitData,
+                    borderColor: '#198754',
+                    backgroundColor: 'transparent',
+                    borderWidth: 2,
+                    borderDash: [5, 5],
+                    tension: 0.3
+                },
+                {
+                    label: 'Discharge (จำหน่าย)',
+                    data: dischargeData,
+                    borderColor: '#0dcaf0',
+                    backgroundColor: 'transparent',
+                    borderWidth: 2,
+                    borderDash: [2, 2],
+                    tension: 0.3
+                }
+            ]
         },
         options: {
             responsive: true,
+            maintainAspectRatio: false,
             plugins: {
-                legend: { display: false }
+                legend: { display: true, position: 'bottom' }
             },
             scales: {
                 y: { beginAtZero: true }
@@ -142,29 +179,89 @@ function renderChart(dailyStats) {
     });
 }
 
-function renderTable(dailyStats) {
+function renderTable(selectedMonth) {
     const tbody = document.getElementById('dailyTableBody');
     tbody.innerHTML = '';
     
-    // Sort descending for table
-    const dates = Object.keys(dailyStats).sort((a,b) => b.localeCompare(a));
+    if(!selectedMonth) return;
+    const [year, month] = selectedMonth.split('-');
+    const daysInMonth = new Date(year, month, 0).getDate();
     
-    dates.forEach(d => {
-        const stats = dailyStats[d];
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td class="fw-bold">${formatDateThaiFull(d)}</td>
-            <td class="text-center text-primary fw-bold">${stats.admit}</td>
-            <td class="text-center text-info">${stats.discharge}</td>
-            <td class="text-center text-success fw-bold">${stats.active}</td>
-        `;
-        tbody.appendChild(tr);
-    });
-}
+    let datesToRender = [];
+    for(let i=1; i<=daysInMonth; i++) {
+        let dStr = `${year}-${month}-${i.toString().padStart(2, '0')}`;
+        if(dStr <= latestDataDateStr) { // ไม่แสดงวันที่เกินข้อมูลล่าสุด
+            datesToRender.push(dStr);
+        }
+    }
+    datesToRender.sort((a,b) => b.localeCompare(a)); // Descending
 
-// Utility Functions
-function getTodayString() {
-    return new Date().toISOString().split('T')[0];
+    if(datesToRender.length === 0) {
+       tbody.innerHTML = '<tr><td colspan="7" class="text-center py-4">ไม่มีข้อมูลในเดือนที่เลือก</td></tr>';
+       return;
+    }
+
+    let hasDataInMonth = false;
+
+    datesToRender.forEach(targetDate => {
+        let wardData = {}; 
+        
+        globalData.forEach(row => {
+            let w = row.ward || 'ไม่ระบุ';
+            if(!wardData[w]) wardData[w] = { active: 0, beds: new Set(), admits: 0, discharges: 0, depts: new Set() };
+            
+            if (row.admitDate && row.admitDate <= targetDate) {
+                if (!row.dischargeDate || row.dischargeDate > targetDate) {
+                    wardData[w].active++;
+                    if(row.bed && row.bed.trim() !== '') wardData[w].beds.add(row.bed);
+                }
+            }
+            if (row.admitDate === targetDate) {
+                wardData[w].admits++;
+                if(row.dept && row.dept.trim() !== '') wardData[w].depts.add(row.dept);
+            }
+            if (row.dischargeDate === targetDate) {
+                wardData[w].discharges++;
+            }
+        });
+
+        // ดึงเฉพาะ Ward ที่มีการเคลื่อนไหวหรือมีคนนอน
+        let activeWards = Object.keys(wardData).filter(w => wardData[w].active > 0 || wardData[w].admits > 0 || wardData[w].discharges > 0);
+        
+        if(activeWards.length === 0) return;
+        hasDataInMonth = true;
+        
+        activeWards.sort();
+
+        activeWards.forEach((w, index) => {
+            let wd = wardData[w];
+            let tr = document.createElement('tr');
+            
+            let dateCell = index === 0 ? `<td rowspan="${activeWards.length}" class="align-middle text-center fw-bold bg-light border-end" style="width:120px;">${formatDateThaiFull(targetDate)}</td>` : '';
+            
+            // เรียงชื่อเตียงเพื่อความเป็นระเบียบ
+            let bedArray = Array.from(wd.beds);
+            bedArray.sort();
+            let bedList = bedArray.join(', ');
+            
+            let deptList = Array.from(wd.depts).join(', ');
+            
+            tr.innerHTML = `
+                ${dateCell}
+                <td class="fw-bold text-secondary">${w}</td>
+                <td class="text-center text-success fw-bold fs-5">${wd.active}</td>
+                <td style="max-width: 250px; font-size: 0.85rem;" class="text-wrap text-muted">${bedList || '-'}</td>
+                <td class="text-center text-primary fw-bold">${wd.admits}</td>
+                <td class="text-center text-info fw-bold">${wd.discharges}</td>
+                <td style="max-width: 200px; font-size: 0.85rem;" class="text-wrap text-muted">${deptList || '-'}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+    });
+
+    if(!hasDataInMonth) {
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-muted">ไม่พบความเคลื่อนไหวในเดือนที่เลือก</td></tr>';
+    }
 }
 
 function formatDateThai(dateString) {
@@ -180,20 +277,29 @@ function formatDateThaiFull(dateString) {
     return `${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear() + 543}`;
 }
 
-// Mock Data Generator for UI Testing
+function getTodayString() {
+    return new Date().toISOString().split('T')[0];
+}
+
+// ข้อมูลจำลองสำหรับทดสอบ
 function generateMockData() {
     globalData = [];
-    const wards = ["ตึกสามัญ", "ตึกพิเศษ", "ตึกคลอด", "กุมารเวชกรรม"];
-    for (let i = 0; i < 200; i++) {
+    const wards = ["ตึกสามัญ", "ตึกพิเศษ", "กุมารเวชกรรม"];
+    const depts = ["อายุรกรรม", "ศัลยกรรม", "ER", "OPD"];
+    const beds = ["M01", "M02", "F01", "F02", "V01", "V02", "M05", "M06"];
+    
+    for (let i = 0; i < 150; i++) {
         let d1 = new Date();
-        d1.setDate(d1.getDate() - Math.floor(Math.random() * 30));
+        d1.setDate(d1.getDate() - Math.floor(Math.random() * 40)); 
         let d2 = new Date(d1);
-        d2.setDate(d2.getDate() + Math.floor(Math.random() * 10) + 1);
+        d2.setDate(d2.getDate() + Math.floor(Math.random() * 8) + 1);
         
         globalData.push({
             admitDate: d1.toISOString().split('T')[0],
-            dischargeDate: Math.random() > 0.3 ? d2.toISOString().split('T')[0] : '', // 30% still active
-            ward: wards[Math.floor(Math.random() * wards.length)]
+            dischargeDate: Math.random() > 0.4 ? d2.toISOString().split('T')[0] : '',
+            ward: wards[Math.floor(Math.random() * wards.length)],
+            bed: beds[Math.floor(Math.random() * beds.length)],
+            dept: depts[Math.floor(Math.random() * depts.length)]
         });
     }
 }

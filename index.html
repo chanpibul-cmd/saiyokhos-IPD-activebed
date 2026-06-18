@@ -4,60 +4,56 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ระบบบริหารจัดการข้อมูล IPD</title>
-  <!-- Bootstrap 5 CSS -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-  <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <link rel="stylesheet" href="style.css">
 </head>
 <body class="bg-light">
 
   <div class="container-fluid py-4">
-    <!-- Navbar / Tab Controls (SPA Structure) -->
-    <ul class="nav nav-pills mb-4 shadow-sm bg-white p-2 rounded" id="pills-tab" role="tablist">
-      <li class="nav-item" role="presentation">
-        <button class="nav-link active fw-bold" id="pills-dashboard-tab" data-bs-toggle="pill" data-bs-target="#pills-dashboard" type="button" role="tab">ภาพรวม Active Bed</button>
-      </li>
-      <li class="nav-item" role="presentation">
-        <button class="nav-link fw-bold" id="pills-daily-tab" data-bs-toggle="pill" data-bs-target="#pills-daily" type="button" role="tab">ข้อมูลรายวัน</button>
-      </li>
-    </ul>
-
-    <!-- Spinner Loading -->
-    <div id="loading" class="text-center py-5">
-      <div class="spinner-border text-primary" role="status">
-        <span class="visually-hidden">Loading...</span>
-      </div>
-      <p class="mt-2 text-muted">กำลังโหลดข้อมูลจากฐานข้อมูล...</p>
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap">
+        <ul class="nav nav-pills shadow-sm bg-white p-2 rounded mb-2 mb-md-0" id="pills-tab" role="tablist">
+          <li class="nav-item" role="presentation">
+            <button class="nav-link active fw-bold" id="pills-dashboard-tab" data-bs-toggle="pill" data-bs-target="#pills-dashboard" type="button">ภาพรวม Active Bed</button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link fw-bold" id="pills-daily-tab" data-bs-toggle="pill" data-bs-target="#pills-daily" type="button">ข้อมูลรายวัน</button>
+          </li>
+        </ul>
+        <div class="text-muted small fw-bold bg-white px-3 py-2 rounded shadow-sm" id="latestDataDateDisplay">
+            ข้อมูลล่าสุด: กำลังโหลด...
+        </div>
     </div>
 
-    <!-- Tab Content -->
+    <div id="loading" class="text-center py-5">
+      <div class="spinner-border text-primary" role="status"></div>
+      <p class="mt-2 text-muted">กำลังโหลดและประมวลผลข้อมูล...</p>
+    </div>
+
     <div class="tab-content" id="pills-tabContent" style="display: none;">
       
-      <!-- Tab 1: Dashboard -->
       <div class="tab-pane fade show active" id="pills-dashboard" role="tabpanel">
-        
         <div class="row mb-4">
-          <div class="col-md-4">
+          <div class="col-md-4 mb-3 mb-md-0">
             <div class="card border-0 shadow-sm bg-primary text-white h-100">
-              <div class="card-body d-flex flex-column justify-content-center">
-                <h6 class="card-title text-uppercase opacity-75">Active Bed (ปัจจุบัน)</h6>
+              <div class="card-body">
+                <h6 class="card-title text-uppercase opacity-75">Active Bed (ณ วันข้อมูลล่าสุด)</h6>
                 <h2 class="display-4 fw-bold mb-0" id="currentActiveBed">0</h2>
               </div>
             </div>
           </div>
-          <div class="col-md-4">
+          <div class="col-md-4 mb-3 mb-md-0">
             <div class="card border-0 shadow-sm bg-success text-white h-100">
-              <div class="card-body d-flex flex-column justify-content-center">
-                <h6 class="card-title text-uppercase opacity-75">Admit วันนี้</h6>
+              <div class="card-body">
+                <h6 class="card-title text-uppercase opacity-75">Admit (ณ วันข้อมูลล่าสุด)</h6>
                 <h2 class="display-4 fw-bold mb-0" id="todayAdmit">0</h2>
               </div>
             </div>
           </div>
           <div class="col-md-4">
             <div class="card border-0 shadow-sm bg-info text-white h-100">
-              <div class="card-body d-flex flex-column justify-content-center">
-                <h6 class="card-title text-uppercase opacity-75">Discharge วันนี้</h6>
+              <div class="card-body">
+                <h6 class="card-title text-uppercase opacity-75">Discharge (ณ วันข้อมูลล่าสุด)</h6>
                 <h2 class="display-4 fw-bold mb-0" id="todayDischarge">0</h2>
               </div>
             </div>
@@ -65,41 +61,46 @@
         </div>
 
         <div class="row">
-          <div class="col-lg-8">
-            <div class="card border-0 shadow-sm">
+          <div class="col-lg-8 mb-4 mb-lg-0">
+            <div class="card border-0 shadow-sm h-100">
               <div class="card-body">
-                <h5 class="card-title mb-4">แนวโน้ม Active Bed 14 วันล่าสุด</h5>
-                <canvas id="activeBedChart" height="100"></canvas>
+                <h5 class="card-title mb-4">กราฟแนวโน้ม Active Bed, Admit และ Discharge (14 วันล่าสุด)</h5>
+                <canvas id="activeBedChart" height="120"></canvas>
               </div>
             </div>
           </div>
           <div class="col-lg-4">
              <div class="card border-0 shadow-sm h-100">
               <div class="card-body">
-                <h5 class="card-title mb-4">สถานะเตียงแยกตาม Ward (ปัจจุบัน)</h5>
-                <div id="wardStatsContainer"></div>
+                <h5 class="card-title mb-4">จำนวน Active Bed แยกตาม Ward</h5>
+                <div id="wardStatsContainer" class="overflow-auto" style="max-height: 350px;"></div>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- Tab 2: ข้อมูลรายวัน -->
       <div class="tab-pane fade" id="pills-daily" role="tabpanel">
         <div class="card border-0 shadow-sm">
           <div class="card-body">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-              <h5 class="card-title mb-0">สรุปข้อมูลรายวัน (ย้อนหลัง 30 วัน)</h5>
-              <input type="month" id="monthFilter" class="form-control w-auto">
+            <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap">
+              <h5 class="card-title mb-0">สรุปข้อมูลรายวัน (แยกตาม Ward)</h5>
+              <div class="d-flex align-items-center mt-2 mt-md-0">
+                  <label for="monthFilter" class="me-2 fw-bold text-muted">เลือกเดือน:</label>
+                  <input type="month" id="monthFilter" class="form-control w-auto border-primary">
+              </div>
             </div>
             <div class="table-responsive">
-              <table class="table table-hover align-middle">
-                <thead class="table-light">
+              <table class="table table-bordered table-hover align-middle bg-white">
+                <thead class="table-light text-center">
                   <tr>
                     <th>วันที่</th>
-                    <th class="text-center text-primary">Admit</th>
-                    <th class="text-center text-info">Discharge</th>
-                    <th class="text-center text-success">Active Bed สะสม</th>
+                    <th>Ward</th>
+                    <th class="text-success">Active Bed<br><small>(จำนวนที่ครองเตียง)</small></th>
+                    <th>เตียงที่ถูกใช้<br><small>(รายชื่อเตียง)</small></th>
+                    <th class="text-primary">Admit<br><small>(รับใหม่)</small></th>
+                    <th class="text-info">Discharge<br><small>(จำหน่าย)</small></th>
+                    <th>จุดที่ส่ง Admit<br><small>(แผนก)</small></th>
                   </tr>
                 </thead>
                 <tbody id="dailyTableBody">

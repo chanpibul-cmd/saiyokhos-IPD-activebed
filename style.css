@@ -1,18 +1,28 @@
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #f8f9fa;
     color: #333;
 }
 .nav-pills .nav-link {
-    color: #495057;
+    color: #6c757d;
     border-radius: 0.5rem;
+    transition: all 0.3s ease;
+}
+.nav-pills .nav-link:hover {
+    background-color: #e9ecef;
 }
 .nav-pills .nav-link.active {
     background-color: #0d6efd;
     color: #fff;
+    box-shadow: 0 4px 6px rgba(13, 110, 253, 0.2);
 }
 .card {
-    border-radius: 0.75rem;
+    border-radius: 1rem;
 }
 .table th {
     font-weight: 600;
+    vertical-align: middle;
+}
+.table td {
+    vertical-align: middle;
 }
