@@ -81,40 +81,45 @@
         </div>
       </div>
 
-      <div class="tab-pane fade" id="pills-daily" role="tabpanel">
-        <div class="card border-0 shadow-sm">
-          <div class="card-body">
-            <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap">
-              <h5 class="card-title mb-0">สรุปข้อมูลรายวัน (แยกตาม Ward)</h5>
-              <div class="d-flex align-items-center mt-2 mt-md-0">
-                  <label for="monthFilter" class="me-2 fw-bold text-muted">เลือกเดือน:</label>
-                  <input type="month" id="monthFilter" class="form-control w-auto border-primary">
-              </div>
-            </div>
-            <div class="table-responsive">
-              <table class="table table-bordered table-hover align-middle bg-white">
-                <thead class="table-light text-center">
-                  <tr>
-                    <th>วันที่</th>
-                    <th>Ward</th>
-                    <th class="text-success">Active Bed<br><small>(จำนวนที่ครองเตียง)</small></th>
-                    <th>เตียงที่ถูกใช้<br><small>(รายชื่อเตียง)</small></th>
-                    <th class="text-primary">Admit<br><small>(รับใหม่)</small></th>
-                    <th class="text-info">Discharge<br><small>(จำหน่าย)</small></th>
-                    <th>จุดที่ส่ง Admit<br><small>(แผนก)</small></th>
-                  </tr>
-                </thead>
-                <tbody id="dailyTableBody">
-                </tbody>
-              </table>
-            </div>
+ <div class="tab-pane fade" id="pills-daily" role="tabpanel">
+  <div class="card border-0 shadow-sm">
+    <div class="card-body">
+      <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+        <h5 class="card-title mb-0">สรุปข้อมูลรายวัน (แยกตาม Ward)</h5>
+        
+        <div class="d-flex align-items-center flex-wrap gap-3 mt-2 mt-md-0">
+          <div class="form-check form-switch bg-light p-2 rounded border shadow-sm px-4">
+            <input class="form-check-input" type="checkbox" id="toggleDetails">
+            <label class="form-check-label small fw-bold text-muted" for="toggleDetails">แสดงเตียง/แผนก</label>
+          </div>
+          
+          <div class="d-flex align-items-center">
+            <label for="monthFilter" class="me-2 fw-bold text-muted">เลือกเดือน:</label>
+            <input type="month" id="monthFilter" class="form-control w-auto border-primary">
           </div>
         </div>
       </div>
-
+      
+      <div class="table-responsive">
+        <table class="table table-bordered table-hover align-middle bg-white">
+          <thead class="table-light text-center">
+            <tr>
+              <th>วันที่</th>
+              <th>Ward</th>
+              <th class="text-success">Active Bed</th>
+              <th class="detail-col d-none">เตียงที่ถูกใช้<br><small>(รายชื่อเตียง)</small></th>
+              <th class="text-primary">Admit</th>
+              <th class="text-info">Discharge</th>
+              <th class="detail-col d-none">จุดที่ส่ง Admit<br><small>(แผนก)</small></th>
+            </tr>
+          </thead>
+          <tbody id="dailyTableBody">
+          </tbody>
+        </table>
+      </div>
     </div>
   </div>
-
+</div>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script src="script.js"></script>
 </body>
