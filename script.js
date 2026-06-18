@@ -11,9 +11,21 @@ document.addEventListener("DOMContentLoaded", () => {
         fetchData();
     }
 
-    // ทำให้ Filter เดือนทำงาน เมื่อมีการเปลี่ยนเดือน
+    // ระบบตรวจจับการเปลี่ยนเดือน Filter
     document.getElementById('monthFilter').addEventListener('change', function() {
         renderTable(this.value);
+    });
+
+    // ระบบเปิด-ปิด ซ่อน/แสดง คอลัมน์เตียงและแผนก
+    document.getElementById('toggleDetails').addEventListener('change', function() {
+        const detailCols = document.querySelectorAll('.detail-col');
+        detailCols.forEach(col => {
+            if (this.checked) {
+                col.classList.remove('d-none');
+            } else {
+                col.classList.add('d-none');
+            }
+        });
     });
 });
 
@@ -41,7 +53,6 @@ function processData() {
     document.getElementById('loading').style.display = 'none';
     document.getElementById('pills-tabContent').style.display = 'block';
 
-    // 1. หา "วันที่ล่าสุด" ที่มีข้อมูลในระบบ
     latestDataDateStr = "1970-01-01";
     globalData.forEach(row => {
         if (row.admitDate && row.admitDate > latestDataDateStr) latestDataDateStr = row.admitDate;
@@ -57,7 +68,6 @@ function processData() {
     const defaultMonth = latestDataDateStr.substring(0, 7);
     document.getElementById('monthFilter').value = defaultMonth;
 
-    // 2. คำนวณ KPI ของ "วันที่ข้อมูลล่าสุด"
     let todayAdmit = 0;
     let todayDischarge = 0;
     let currentActiveBed = 0;
@@ -80,7 +90,6 @@ function processData() {
     document.getElementById('todayDischarge').innerText = todayDischarge;
     document.getElementById('currentActiveBed').innerText = currentActiveBed;
 
-    // 3. Render Ward Stats
     let wardHtml = '';
     let sortedWards = Object.keys(wardCounts).sort((a,b) => wardCounts[b] - wardCounts[a]);
     sortedWards.forEach(w => {
@@ -91,7 +100,6 @@ function processData() {
     });
     document.getElementById('wardStatsContainer').innerHTML = wardHtml || '<p class="text-muted text-center py-3">ไม่มีข้อมูล Active Bed</p>';
 
-    // 4. Generate Daily Stats สำหรับกราฟ 14 วันย้อนหลัง
     let dailyStats = {};
     for(let i=0; i<14; i++) {
         let d = new Date(latestDataDateStr);
@@ -198,6 +206,9 @@ function renderTable(selectedMonth) {
 
     let hasDataInMonth = false;
 
+    // ตรวจสอบว่าขณะที่ตารางเรนเดอร์ ปุ่ม Switch ถูกเปิดอยู่หรือไม่ เพื่อคงสถานะซ่อน/แสดงซ้ำ
+    const isDetailVisible = document.getElementById('toggleDetails')?.checked ? '' : 'd-none';
+
     datesToRender.forEach(targetDate => {
         let wardData = {}; 
         
@@ -224,23 +235,25 @@ function renderTable(selectedMonth) {
         
         if(activeWards.length === 0) return;
         hasDataInMonth = true;
-        
         activeWards.sort();
 
-        // คำนวณหาผลรวม Active Bed ของทุกวอร์ดในวันนี้
+        // คำนวณยอดรวมรายวันของทุก Ward มารวมกัน
         let totalActiveInDate = activeWards.reduce((sum, w) => sum + wardData[w].active, 0);
+        let totalAdmitsInDate = activeWards.reduce((sum, w) => sum + wardData[w].admits, 0);
+        let totalDischargesInDate = activeWards.reduce((sum, w) => sum + wardData[w].discharges, 0);
 
         activeWards.forEach((w, index) => {
             let wd = wardData[w];
             let tr = document.createElement('tr');
             
-            // ปรับแต่งให้ช่องวันที่แสดงผลรวม Active Bed ด้านล่างวันที่
+            // ปรับปรุงการสรุปผลใต้ช่องวันที่ตามเกณฑ์ย่อ A=Admit, D=Discharge, AT=Activebed
             let dateCell = index === 0 ? `
-                <td rowspan="${activeWards.length}" class="align-middle text-center bg-light border-end" style="width:150px; min-width:150px;">
-                    <div class="fw-bold text-dark mb-2">${formatDateThaiFull(targetDate)}</div>
-                    <div class="pt-1 mt-1 border-top border-secondary border-opacity-10">
-                        <small class="text-muted d-block" style="font-size:0.75rem;">Active Bed รวม</small>
-                        <span class="badge bg-success shadow-sm px-2 py-1 mt-1 fs-6">${totalActiveInDate} เตียง</span>
+                <td rowspan="${activeWards.length}" class="align-middle text-center bg-light border-end" style="width:160px; min-width:160px;">
+                    <div class="fw-bold text-dark mb-2" style="font-size:0.85rem;">${formatDateThaiFull(targetDate)}</div>
+                    <div class="pt-2 mt-1 border-top border-secondary border-opacity-10 d-flex flex-column gap-1 align-items-center">
+                        <span class="badge bg-success shadow-sm px-2 py-1 w-100 text-start" style="font-family: monospace;">AT = ${totalActiveInDate}</span>
+                        <span class="badge bg-primary shadow-sm px-2 py-1 w-100 text-start" style="font-family: monospace;">A  = ${totalAdmitsInDate}</span>
+                        <span class="badge bg-info text-dark shadow-sm px-2 py-1 w-100 text-start" style="font-family: monospace;">D  = ${totalDischargesInDate}</span>
                     </div>
                 </td>` : '';
             
@@ -254,10 +267,10 @@ function renderTable(selectedMonth) {
                 ${dateCell}
                 <td class="fw-bold text-secondary">${w}</td>
                 <td class="text-center text-success fw-bold fs-5">${wd.active}</td>
-                <td style="max-width: 250px; font-size: 0.85rem;" class="text-wrap text-muted">${bedList || '-'}</td>
+                <td class="detail-col ${isDetailVisible} text-wrap text-muted" style="max-width: 250px; font-size: 0.85rem;">${bedList || '-'}</td>
                 <td class="text-center text-primary fw-bold">${wd.admits}</td>
                 <td class="text-center text-info fw-bold">${wd.discharges}</td>
-                <td style="max-width: 200px; font-size: 0.85rem;" class="text-wrap text-muted">${deptList || '-'}</td>
+                <td class="detail-col ${isDetailVisible} text-wrap text-muted" style="max-width: 200px; font-size: 0.85rem;">${deptList || '-'}</td>
             `;
             tbody.appendChild(tr);
         });
