@@ -1,4 +1,4 @@
-const APPS_SCRIPT_URL = "YOUR_WEB_APP_URL_HERE";
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw4kWnajdQAcS_jBedRX31MIlvoT5S-mHZl0Z5AEBpYZnRvRJjowtAgaPVEzMhXtqh5/exec";
 
 let globalData = [];
 let latestDataDateStr = "";
