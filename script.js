@@ -41,7 +41,7 @@ function processData() {
     document.getElementById('loading').style.display = 'none';
     document.getElementById('pills-tabContent').style.display = 'block';
 
-    // 1. หา "วันที่ล่าสุด" ที่มีข้อมูลในระบบ (แก้ปัญหางานไม่อัพเดทเป็นปัจจุบันทุกวัน)
+    // 1. หา "วันที่ล่าสุด" ที่มีข้อมูลในระบบ
     latestDataDateStr = "1970-01-01";
     globalData.forEach(row => {
         if (row.admitDate && row.admitDate > latestDataDateStr) latestDataDateStr = row.admitDate;
@@ -49,13 +49,11 @@ function processData() {
     });
     
     if (latestDataDateStr === "1970-01-01") {
-        latestDataDateStr = new Date().toISOString().split('T')[0]; // Fallback
+        latestDataDateStr = new Date().toISOString().split('T')[0];
     }
 
-    // อัพเดท UI
     document.getElementById('latestDataDateDisplay').innerHTML = `ข้อมูลล่าสุด: <span class="text-primary">${formatDateThaiFull(latestDataDateStr)}</span>`;
     
-    // ตั้งค่าเริ่มต้นของ Month Filter ให้เป็นเดือนของข้อมูลล่าสุด
     const defaultMonth = latestDataDateStr.substring(0, 7);
     document.getElementById('monthFilter').value = defaultMonth;
 
@@ -69,7 +67,6 @@ function processData() {
         if (row.admitDate === latestDataDateStr) todayAdmit++;
         if (row.dischargeDate === latestDataDateStr) todayDischarge++;
         
-        // Active Bed Logic ณ วันที่ข้อมูลล่าสุด
         if (row.admitDate && row.admitDate <= latestDataDateStr) {
             if (!row.dischargeDate || row.dischargeDate > latestDataDateStr) {
                 currentActiveBed++;
@@ -83,7 +80,7 @@ function processData() {
     document.getElementById('todayDischarge').innerText = todayDischarge;
     document.getElementById('currentActiveBed').innerText = currentActiveBed;
 
-    // 3. Render Ward Stats (ด้านล่างแจงจำนวนเตียง แต่ละ ward)
+    // 3. Render Ward Stats
     let wardHtml = '';
     let sortedWards = Object.keys(wardCounts).sort((a,b) => wardCounts[b] - wardCounts[a]);
     sortedWards.forEach(w => {
@@ -94,7 +91,7 @@ function processData() {
     });
     document.getElementById('wardStatsContainer').innerHTML = wardHtml || '<p class="text-muted text-center py-3">ไม่มีข้อมูล Active Bed</p>';
 
-    // 4. Generate Daily Stats สำหรับกราฟ 14 วันย้อนหลัง จากวันที่ข้อมูลล่าสุด
+    // 4. Generate Daily Stats สำหรับกราฟ 14 วันย้อนหลัง
     let dailyStats = {};
     for(let i=0; i<14; i++) {
         let d = new Date(latestDataDateStr);
@@ -116,15 +113,13 @@ function processData() {
     });
 
     renderChart(dailyStats);
-    
-    // 5. Render ตารางรายวันตามเดือนของข้อมูลล่าสุด
     renderTable(defaultMonth);
 }
 
 let activeBedChart;
 function renderChart(dailyStats) {
     const ctx = document.getElementById('activeBedChart').getContext('2d');
-    const dates = Object.keys(dailyStats).sort(); // Ascending for chart
+    const dates = Object.keys(dailyStats).sort();
     
     const activeData = dates.map(d => dailyStats[d].active);
     const admitData = dates.map(d => dailyStats[d].admit);
@@ -138,16 +133,16 @@ function renderChart(dailyStats) {
             labels: dates.map(d => formatDateThai(d)),
             datasets: [
                 {
-                    label: 'Active Bed',
+                    label: 'Active Bed (รวม)',
                     data: activeData,
                     borderColor: '#0d6efd',
-                    backgroundColor: 'rgba(13, 110, 253, 0.1)',
-                    borderWidth: 2,
+                    backgroundColor: 'rgba(13, 110, 253, 0.05)',
+                    borderWidth: 2.5,
                     fill: true,
                     tension: 0.3
                 },
                 {
-                    label: 'Admit (รับเข้า)',
+                    label: 'Admit (รับใหม่)',
                     data: admitData,
                     borderColor: '#198754',
                     backgroundColor: 'transparent',
@@ -190,11 +185,11 @@ function renderTable(selectedMonth) {
     let datesToRender = [];
     for(let i=1; i<=daysInMonth; i++) {
         let dStr = `${year}-${month}-${i.toString().padStart(2, '0')}`;
-        if(dStr <= latestDataDateStr) { // ไม่แสดงวันที่เกินข้อมูลล่าสุด
+        if(dStr <= latestDataDateStr) {
             datesToRender.push(dStr);
         }
     }
-    datesToRender.sort((a,b) => b.localeCompare(a)); // Descending
+    datesToRender.sort((a,b) => b.localeCompare(a));
 
     if(datesToRender.length === 0) {
        tbody.innerHTML = '<tr><td colspan="7" class="text-center py-4">ไม่มีข้อมูลในเดือนที่เลือก</td></tr>';
@@ -225,7 +220,6 @@ function renderTable(selectedMonth) {
             }
         });
 
-        // ดึงเฉพาะ Ward ที่มีการเคลื่อนไหวหรือมีคนนอน
         let activeWards = Object.keys(wardData).filter(w => wardData[w].active > 0 || wardData[w].admits > 0 || wardData[w].discharges > 0);
         
         if(activeWards.length === 0) return;
@@ -233,13 +227,23 @@ function renderTable(selectedMonth) {
         
         activeWards.sort();
 
+        // คำนวณหาผลรวม Active Bed ของทุกวอร์ดในวันนี้
+        let totalActiveInDate = activeWards.reduce((sum, w) => sum + wardData[w].active, 0);
+
         activeWards.forEach((w, index) => {
             let wd = wardData[w];
             let tr = document.createElement('tr');
             
-            let dateCell = index === 0 ? `<td rowspan="${activeWards.length}" class="align-middle text-center fw-bold bg-light border-end" style="width:120px;">${formatDateThaiFull(targetDate)}</td>` : '';
+            // ปรับแต่งให้ช่องวันที่แสดงผลรวม Active Bed ด้านล่างวันที่
+            let dateCell = index === 0 ? `
+                <td rowspan="${activeWards.length}" class="align-middle text-center bg-light border-end" style="width:150px; min-width:150px;">
+                    <div class="fw-bold text-dark mb-2">${formatDateThaiFull(targetDate)}</div>
+                    <div class="pt-1 mt-1 border-top border-secondary border-opacity-10">
+                        <small class="text-muted d-block" style="font-size:0.75rem;">Active Bed รวม</small>
+                        <span class="badge bg-success shadow-sm px-2 py-1 mt-1 fs-6">${totalActiveInDate} เตียง</span>
+                    </div>
+                </td>` : '';
             
-            // เรียงชื่อเตียงเพื่อความเป็นระเบียบ
             let bedArray = Array.from(wd.beds);
             bedArray.sort();
             let bedList = bedArray.join(', ');
@@ -281,7 +285,6 @@ function getTodayString() {
     return new Date().toISOString().split('T')[0];
 }
 
-// ข้อมูลจำลองสำหรับทดสอบ
 function generateMockData() {
     globalData = [];
     const wards = ["ตึกสามัญ", "ตึกพิเศษ", "กุมารเวชกรรม"];
