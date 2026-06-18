@@ -1,5 +1,5 @@
 // ใส่ URL ของ Web App ที่ได้จาก Apps Script ที่นี่
-const APPS_SCRIPT_URL = "YOUR_WEB_APP_URL_HERE";
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxOHlkqLZSvTC_UK0nx2yxRQo8zByapBoMX9bp64iNQR1h_ToJts48k6U3FAR1cgIkY/exec";
 
 let globalData = [];
 
